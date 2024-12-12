@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Select,
   SelectContent,
@@ -86,73 +87,86 @@ const getPageNumbers = (currentPage: number, totalPages: number) => {
   return rangeWithDots;
 };
 
-export default function ProblemsPage() {  
-  const [searchParams, setSearchParams] = useState({
-    tags: [] as string[],
-    matchType: 'include' as 'exact' | 'include',
-    minLevel: undefined as number | undefined,
-    maxLevel: undefined as number | undefined,
-    keyword: '',
-    sortField: 'level',
-    sortOrder: 'asc',
-    classes: [] as number[]
-  });
+export default function ProblemsPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [matchType, setMatchType] = useState<'exact' | 'include'>('include');
-  const [minLevel, setMinLevel] = useState<number | undefined>();
-  const [maxLevel, setMaxLevel] = useState<number | undefined>();
-  const [keyword, setKeyword] = useState('');
-  const [sortField, setSortField] = useState<string>('id');
-  const [sortOrder, setSortOrder] = useState<string>('asc');
-  const [problems, setProblems] = useState<Problem[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const limit = 20;
-  const [availableTags, setAvailableTags] = useState<Tag[]>([]);
-  const [selectedClasses, setSelectedClasses] = useState<number[]>([]);
-  const [expandedProblemIds, setExpandedProblemIds] = useState<number[]>([]);
+  // 초기 상태를 URL 파라미터에서 가져오기
+  const [selectedTags, setSelectedTags] = useState<string[]>(
+    searchParams.get('tags')?.split(',').filter(Boolean) || []
+  );
+  const [matchType, setMatchType] = useState<'exact' | 'include'>(
+    (searchParams.get('matchType') as 'exact' | 'include') || 'include'
+  );
+  const [minLevel, setMinLevel] = useState<number | undefined>(
+    searchParams.get('minLevel') ? Number(searchParams.get('minLevel')) : undefined
+  );
+  const [maxLevel, setMaxLevel] = useState<number | undefined>(
+    searchParams.get('maxLevel') ? Number(searchParams.get('maxLevel')) : undefined
+  );
+  const [keyword, setKeyword] = useState(searchParams.get('keyword') || '');
+  const [sortField, setSortField] = useState<string>(searchParams.get('sortField') || 'id');
+  const [sortOrder, setSortOrder] = useState<string>(searchParams.get('sortOrder') || 'asc');
+  const [selectedClasses, setSelectedClasses] = useState<number[]>(
+    searchParams.get('classes')?.split(',').map(Number).filter(Boolean) || []
+  );
+  const [page, setPage] = useState(Number(searchParams.get('page')) || 1);
 
-  useEffect(() => {
-    fetchProblems();
-  }, [page, searchParams]);
+  // URL 업데이트 함수
+  const updateURL = (params: Record<string, string | undefined>) => {
+    const newParams = new URLSearchParams();
+    
+    Object.entries(params).forEach(([key, value]) => {
+      if (value) newParams.set(key, value);
+    });
 
-  useEffect(() => {
-    fetchTags();
-  }, []);
+    router.push(`/problems?${newParams.toString()}`);
+  };
 
+  // 검색 조건이 변경될 때 URL 업데이트
   const handleSearch = () => {
-    setSearchParams({
-      tags: selectedTags,
+    const params = {
+      tags: selectedTags.length ? selectedTags.join(',') : undefined,
       matchType,
-      minLevel,
-      maxLevel,
-      keyword,
+      minLevel: minLevel?.toString(),
+      maxLevel: maxLevel?.toString(),
+      keyword: keyword || undefined,
       sortField,
       sortOrder,
-      classes: selectedClasses
-    });
+      classes: selectedClasses.length ? selectedClasses.join(',') : undefined,
+      page: '1', // 검색 시 첫 페이지로 이동
+    };
+
+    updateURL(params);
+    fetchProblems();
     setPage(1);
   };
 
+  // 페이지 변경 시 URL 업데이트
+  useEffect(() => {
+    const params = {
+      tags: selectedTags.length ? selectedTags.join(',') : undefined,
+      matchType,
+      minLevel: minLevel?.toString(),
+      maxLevel: maxLevel?.toString(),
+      keyword: keyword || undefined,
+      sortField,
+      sortOrder,
+      classes: selectedClasses.length ? selectedClasses.join(',') : undefined,
+      page: page.toString(),
+    };
+
+    updateURL(params);
+  }, [page]);
+
+  // URL 파라미터가 변경될 때 검색 실행
+  useEffect(() => {
+    fetchProblems();
+  }, [searchParams]);
+
   const fetchProblems = async () => {
     try {
-      const params = new URLSearchParams({
-        ...(selectedTags.length && { tags: selectedTags.join(',') }),
-        matchType,
-        ...(minLevel !== undefined && { minLevel: minLevel.toString() }),
-        ...(maxLevel !== undefined && { maxLevel: maxLevel.toString() }),
-        ...(keyword && { keyword }),
-        ...(selectedClasses.length > 0 && { classes: selectedClasses.join(',') }),
-        page: page.toString(),
-        limit: limit.toString(),
-        sortField,
-        sortOrder
-      });
-
-      console.log('검색 파라미터:', params.toString());
-      
-      const response = await fetch(`/api/problems/search?${params}`);
+      const response = await fetch(`/api/problems/search?${searchParams.toString()}`);
       const data = await response.json();
       
       if (data.success) {
@@ -163,6 +177,16 @@ export default function ProblemsPage() {
       console.error('문제 로딩 중 오류:', error);
     }
   };
+
+  const [problems, setProblems] = useState<Problem[]>([]);
+  const [total, setTotal] = useState(0);
+  const limit = 20;
+  const [availableTags, setAvailableTags] = useState<Tag[]>([]);
+  const [expandedProblemIds, setExpandedProblemIds] = useState<number[]>([]);
+
+  useEffect(() => {
+    fetchTags();
+  }, []);
 
   const fetchTags = async () => {
     try {
