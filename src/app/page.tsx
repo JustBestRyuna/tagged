@@ -1,5 +1,12 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 export default function Home() {
   return (
@@ -21,52 +28,65 @@ export default function Home() {
           />
         </div>
         
-        <p className="text-xl sm:text-2xl text-gray-600 dark:text-gray-300">
+        <p className="text-xl sm:text-2xl text-muted-foreground">
           태그 기반 BOJ 문제 검색 서비스
         </p>
 
         <div className="space-y-4 sm:space-y-0 sm:space-x-4 flex flex-col sm:flex-row justify-center">
-          <Link 
-            href="/problems"
-            className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold text-lg"
+          <Button asChild size="lg" className="text-lg">
+            <Link href="/problems">
+              문제 검색하기
+            </Link>
+          </Button>
+          <Button 
+            asChild 
+            variant="outline" 
+            size="lg"
+            className="text-lg"
           >
-            문제 검색하기
-          </Link>
-          <a 
-            href="https://github.com/JustBestRyuna/tagged"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-8 py-4 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors font-semibold text-lg"
-          >
-            GitHub
-          </a>
+            <a 
+              href="https://github.com/JustBestRyuna/tagged"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              GitHub
+            </a>
+          </Button>
         </div>
 
         {/* Feature Section */}
         <div className="mt-16 grid grid-cols-1 sm:grid-cols-3 gap-8">
-          <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
-            <h2 className="text-xl font-semibold mb-4">태그 기반 검색</h2>
-            <p className="text-gray-600 dark:text-gray-300">
-              원하는 알고리즘 태그 조합으로 문제를 찾아보세요
-            </p>
-          </div>
-          <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
-            <h2 className="text-xl font-semibold mb-4">정확한 매칭</h2>
-            <p className="text-gray-600 dark:text-gray-300">
-              정확히 일치하는 태그 또는 포함된 태그로 검색하세요
-            </p>
-          </div>
-          <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
-            <h2 className="text-xl font-semibold mb-4">매일 업데이트</h2>
-            <p className="text-gray-600 dark:text-gray-300">
-              매일 오전 6시에 최신 문제 정보로 업데이트됩니다
-            </p>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>태그 기반 검색</CardTitle>
+              <CardDescription>
+                원하는 알고리즘 태그 조합으로 문제를 찾아보세요
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>정확한 매칭</CardTitle>
+              <CardDescription>
+                정확히 일치하는 태그 또는 포함된 태그로 검색하세요
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>매일 업데이트</CardTitle>
+              <CardDescription>
+                매일 오전 6시에 최신 문제 정보로 업데이트됩니다
+              </CardDescription>
+            </CardHeader>
+          </Card>
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="mt-16 text-center text-gray-500">
+      <footer className="mt-16 text-center text-muted-foreground">
         <p>© 2024 Tagged. All rights reserved.</p>
       </footer>
     </div>

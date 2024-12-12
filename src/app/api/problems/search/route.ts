@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
 type MatchType = 'exact' | 'include';
+type SortField = 'level' | 'acceptedUserCount' | 'averageTries';
+type SortOrder = 'asc' | 'desc';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -11,10 +13,14 @@ export async function GET(request: Request) {
   // 검색 파라미터 파싱
   const tags = searchParams.get('tags')?.split(',').filter(Boolean) || [];
   const matchType = (searchParams.get('matchType') || 'include') as MatchType;
-  const level = searchParams.get('level') ? parseInt(searchParams.get('level')!) : undefined;
   const keyword = searchParams.get('keyword') || undefined;
   const page = parseInt(searchParams.get('page') || '1');
   const limit = parseInt(searchParams.get('limit') || '20');
+  const sortField = (searchParams.get('sortField') || 'level') as SortField;
+  const sortOrder = (searchParams.get('sortOrder') || 'asc') as SortOrder;
+  const minLevel = searchParams.get('minLevel') ? Number(searchParams.get('minLevel')) : undefined;
+  const maxLevel = searchParams.get('maxLevel') ? Number(searchParams.get('maxLevel')) : undefined;
+  const classes = searchParams.get('classes')?.split(',').map(Number) || [];
 
   try {
     // 태그 검색 조건 구성
@@ -71,17 +77,33 @@ export async function GET(request: Request) {
     const where = {
       AND: [
         tagCondition,
-        // 난이도 필터
-        level ? { level } : {},
         // 키워드 검색
         keyword ? {
           OR: [
             { titleKo: { contains: keyword } },
             { titleEn: { contains: keyword } }
           ]
-        } : {}
+        } : {},
+        minLevel !== undefined ? { level: { gte: minLevel } } : {},
+        maxLevel !== undefined ? { level: { lte: maxLevel } } : {},
+        classes.length > 0 ? {
+          classes: {
+            some: {
+              class: {
+                id: {
+                  in: classes
+                }
+              }
+            }
+          }
+        } : {},
       ]
     };
+
+    const orderBy: Prisma.ProblemOrderByWithRelationInput[] = [
+      { [sortField]: sortOrder },
+      { id: 'asc' }
+    ];
 
     // 총 결과 수 조회
     const total = await prisma.problem.count({ where });
@@ -108,10 +130,7 @@ export async function GET(request: Request) {
           }
         }
       },
-      orderBy: [
-        { level: 'asc' },
-        { id: 'asc' }
-      ],
+      orderBy,
       skip: (page - 1) * limit,
       take: limit
     });
