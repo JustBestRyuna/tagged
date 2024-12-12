@@ -31,7 +31,7 @@ export class SourceCrawler {
   async crawlAll() {
     try {
       console.log('출처 크롤링 시작...');
-      await this.crawlSources();
+      await this.crawlSourceGroup(0); // 루트(0)부터 시작
       console.log('출처 크롤링 완료!');
     } catch (error) {
       console.error('출처 크롤링 중 에러 발생:', error);
@@ -39,11 +39,10 @@ export class SourceCrawler {
     }
   }
 
-  private async crawlSources() {
+  private async crawlSourceGroup(groupId: number) {
     try {
-      // 1. 메인 출처 그룹 정보 가져오기
       const response = await fetch(
-        `${this.BASE_URL}/problem/contest/group?contestGroupId=0`,
+        `${this.BASE_URL}/problem/contest/group?contestGroupId=${groupId}`,
         {
           headers: {
             'Content-Type': 'application/json'
@@ -57,39 +56,48 @@ export class SourceCrawler {
 
       const data = await response.json() as ContestGroupResponse;
       
-      // 2. 각 출처 그룹 처리
+      // 현재 그룹 저장
+      if (data.contestGroup.contestGroupId !== 0) {
+        await this.saveGroup(data.contestGroup);
+      }
+
+      // 하위 그룹들 처리
       for (const group of data.childGroups) {
-        await prisma.$transaction(async (tx) => {
-          // 출처 그룹 저장/업데이트
-          const savedGroup = await tx.source.upsert({
-            where: { id: group.contestGroupId },
-            create: {
-              id: group.contestGroupId,
-              sourceName: group.contestGroupName,
-              fullName: group.contestGroupFullName,
-              tag: group.contestGroupTagName,
-              problemCount: group.contestGroupProblemCount,
-              availableProblemCount: group.contestGroupAvailableProblemCount,
-              openProblemCount: group.contestGroupOpenProblemCount
-            },
-            update: {
-              sourceName: group.contestGroupName,
-              fullName: group.contestGroupFullName,
-              tag: group.contestGroupTagName,
-              problemCount: group.contestGroupProblemCount,
-              availableProblemCount: group.contestGroupAvailableProblemCount,
-              openProblemCount: group.contestGroupOpenProblemCount
-            }
-          });
-
-          console.log(`출처 그룹 처리 완료: ${savedGroup.sourceName}`);
-        });
-
+        await this.saveGroup(group);
         await this.delay(this.DELAY);
+        // 재귀적으로 하위 그룹 크롤링
+        await this.crawlSourceGroup(group.contestGroupId);
       }
     } catch (error) {
-      console.error('출처 정보 처리 중 에러:', error);
+      console.error(`그룹 ${groupId} 처리 중 에러:`, error);
       throw error;
     }
+  }
+
+  private async saveGroup(group: ContestGroup) {
+    await prisma.$transaction(async (tx) => {
+      const savedGroup = await tx.source.upsert({
+        where: { id: group.contestGroupId },
+        create: {
+          id: group.contestGroupId,
+          sourceName: group.contestGroupName,
+          fullName: group.contestGroupFullName,
+          tag: group.contestGroupTagName,
+          problemCount: group.contestGroupProblemCount,
+          availableProblemCount: group.contestGroupAvailableProblemCount,
+          openProblemCount: group.contestGroupOpenProblemCount
+        },
+        update: {
+          sourceName: group.contestGroupName,
+          fullName: group.contestGroupFullName,
+          tag: group.contestGroupTagName,
+          problemCount: group.contestGroupProblemCount,
+          availableProblemCount: group.contestGroupAvailableProblemCount,
+          openProblemCount: group.contestGroupOpenProblemCount
+        }
+      });
+
+      console.log(`출처 그룹 처리 완료: ${savedGroup.sourceName}`);
+    });
   }
 } 

@@ -28,23 +28,28 @@ export class ProblemCrawler {
 
   async crawlAll() {
     try {
-      console.log('크롤링 시작...');
-      await this.crawlProblems();
-      console.log('크롤링 완료!');
+      console.log('문제 크롤링 시작...');
+      // 난이도 0~30까지 순차적으로 크롤링
+      for (let level = 0; level <= 30; level++) {
+        console.log(`난이도 ${level} 크롤링 시작...`);
+        await this.crawlProblemsByLevel(level);
+        await delay(this.DELAY);
+      }
+      console.log('문제 크롤링 완료!');
     } catch (error) {
-      console.error('크롤링 중 에러 발생:', error);
+      console.error('문제 크롤링 중 에러 발생:', error);
       throw error;
     }
   }
 
-  private async crawlProblems() {
+  private async crawlProblemsByLevel(level: number) {
     let page = 1;
     const items_per_page = 50;
 
     while (true) {
       try {
         const response = await fetch(
-          `${this.BASE_URL}/search/problem?page=${page}&sort=id&direction=asc&limit=${items_per_page}`,
+          `${this.BASE_URL}/search/problem?query=*${level}&page=${page}&sort=id&direction=asc&limit=${items_per_page}`,
           {
             headers: {
               'Content-Type': 'application/json'
@@ -61,17 +66,17 @@ export class ProblemCrawler {
         if (!data.items.length) break;
 
         await this.processProblemBatch(data.items);
-        console.log(`페이지 ${page} 처리 완료`);
+        console.log(`난이도 ${level} - 페이지 ${page} 처리 완료`);
         
         page++;
-        await delay(this.DELAY); // API 레이트 리밋 준수
+        await delay(this.DELAY);
       } catch (error) {
-        console.error(`페이지 ${page} 처리 중 에러:`, error);
+        console.error(`난이도 ${level} - 페이지 ${page} 처리 중 에러:`, error);
         throw error;
       }
     }
   }
-
+  
   private async processProblemBatch(problems: SolvedacProblem[]) {
     for (const problem of problems) {
       await prisma.$transaction(async (tx) => {
