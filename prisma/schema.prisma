@@ -52,11 +52,18 @@ model ProblemTag {
 }
 
 model Source {
-  id          Int            @id @default(autoincrement())
-  nameKo      String
-  nameEn      String?
+  id                      Int      @id
+  sourceName             String
+  fullName               String
+  tag                    String?
+  problemCount           Int
+  availableProblemCount Int
+  openProblemCount      Int
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  // Add relation
   problems    ProblemSource[]
-  createdAt   DateTime      @default(now())
 }
 
 model ProblemSource {
