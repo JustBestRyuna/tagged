@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Problem {
+  id               Int           @id
+  titleKo          String
+  titleEn          String?
+  level            Int
+  acceptedUserCount Int
+  averageTries     Float?
+  description      String?
+  updatedAt        DateTime      @updatedAt
+  createdAt        DateTime      @default(now())
+  
+  // Relations
+  tags            ProblemTag[]
+  sources         ProblemSource[]
+  classes         ProblemClass[]
+
+  @@index([level])
+  @@index([titleKo])
+}
+
+model Tag {
+  id          Int           @id @default(autoincrement())
+  key         String        @unique
+  nameKo      String
+  nameEn      String?
+  isMeta      Boolean       @default(false)
+  problems    ProblemTag[]
+  createdAt   DateTime      @default(now())
+
+  @@index([key])
+}
+
+model ProblemTag {
+  problemId   Int
+  tagId       Int
+  problem     Problem       @relation(fields: [problemId], references: [id])
+  tag         Tag          @relation(fields: [tagId], references: [id])
+  createdAt   DateTime     @default(now())
+
+  @@id([problemId, tagId])
+  @@index([problemId])
+  @@index([tagId])
+}
+
+model Source {
+  id          Int            @id @default(autoincrement())
+  nameKo      String
+  nameEn      String?
+  problems    ProblemSource[]
+  createdAt   DateTime      @default(now())
+}
+
+model ProblemSource {
+  problemId   Int
+  sourceId    Int
+  problem     Problem       @relation(fields: [problemId], references: [id])
+  source      Source        @relation(fields: [sourceId], references: [id])
+  createdAt   DateTime     @default(now())
+
+  @@id([problemId, sourceId])
+  @@index([problemId])
+  @@index([sourceId])
+}
+
+model Class {
+  id          Int            @id
+  name        String         @unique
+  problems    ProblemClass[]
+  createdAt   DateTime      @default(now())
+}
+
+model ProblemClass {
+  problemId   Int
+  classId     Int
+  problem     Problem       @relation(fields: [problemId], references: [id])
+  class       Class         @relation(fields: [classId], references: [id])
+  createdAt   DateTime     @default(now())
+
+  @@id([problemId, classId])
+  @@index([problemId])
+  @@index([classId])
+} 
