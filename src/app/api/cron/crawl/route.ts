@@ -3,6 +3,8 @@ import { headers } from 'next/headers';
 import { ProblemCrawler } from '@/lib/crawler';
 import { SourceCrawler } from '@/lib/crawler/sources';
 
+export const maxDuration = 300;
+
 export async function GET() {
   const headersList = await headers();
   const authHeader = headersList.get('authorization');
