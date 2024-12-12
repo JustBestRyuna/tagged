@@ -87,7 +87,7 @@ const getPageNumbers = (currentPage: number, totalPages: number) => {
   return rangeWithDots;
 };
 
-export default function ProblemsPage() {
+function ProblemsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -233,238 +233,244 @@ export default function ProblemsPage() {
   };
 
   return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <main className="p-4">
-        {/* 태그 선택 */}
-        <div className="mb-4">
-          <div className="text-sm mb-2">선택된 태그:</div>
-          <div className="flex flex-wrap gap-2 mb-4">
-            {selectedTags.map(tagKey => {
-              const tag = availableTags.find(t => t.key === tagKey);
-              return tag ? (
-                <Badge
-                  key={tag.key}
-                  variant="secondary"
-                  className="cursor-pointer"
-                  onClick={() => handleTagToggle(tag.key)}
-                >
-                  {tag.nameKo} ×
-                </Badge>
-              ) : null;
-            })}
-          </div>
-          
-          <div className="mb-4">
-            <ToggleGroup
-              type="single"
-              value={matchType}
-              onValueChange={(value) => value && setMatchType(value as 'exact' | 'include')}
-              className="justify-start"
-            >
-              <ToggleGroupItem value="exact">정확히 일치</ToggleGroupItem>
-              <ToggleGroupItem value="include">포함</ToggleGroupItem>
-            </ToggleGroup>
-          </div>
-          
-          <div className="text-sm mb-2">사용 가능한 태그:</div>
-          <div className="flex flex-wrap gap-2">
-            {availableTags.map(tag => (
-              <Button
+    <main className="p-4">
+      {/* 태그 선택 */}
+      <div className="mb-4">
+        <div className="text-sm mb-2">선택된 태그:</div>
+        <div className="flex flex-wrap gap-2 mb-4">
+          {selectedTags.map(tagKey => {
+            const tag = availableTags.find(t => t.key === tagKey);
+            return tag ? (
+              <Badge
                 key={tag.key}
-                variant={selectedTags.includes(tag.key) ? "secondary" : "outline"}
-                size="sm"
-                className="h-7"
+                variant="secondary"
+                className="cursor-pointer"
                 onClick={() => handleTagToggle(tag.key)}
               >
-                {tag.nameKo}
-              </Button>
-            ))}
-          </div>
+                {tag.nameKo} ×
+              </Badge>
+            ) : null;
+          })}
         </div>
-
-        {/* 클래스 선택 */}
+        
         <div className="mb-4">
-          <div className="text-sm mb-2">CLASS 선택:</div>
-          <div className="flex flex-wrap gap-2">
-            {Array.from({ length: 10 }, (_, i) => (
-              <Button
-                key={i + 1}
-                variant={selectedClasses.includes(i + 1) ? "secondary" : "outline"}
-                size="sm"
-                className="h-7"
-                onClick={() => handleClassToggle(i + 1)}
-              >
-                CLASS {i + 1}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        {/* 난이도 범위 선택 */}
-        <div className="mb-4 flex gap-4 items-center">
-          <Select value={minLevel?.toString()} onValueChange={(v) => setMinLevel(Number(v))}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="최소 레벨" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="0">Unrated</SelectItem>
-              {Array.from({ length: 30 }, (_, i) => (
-                <SelectItem key={i + 1} value={(i + 1).toString()}>
-                  {getLevelName(i + 1)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <span>~</span>
-          <Select value={maxLevel?.toString()} onValueChange={(v) => setMaxLevel(Number(v))}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="최대 레벨" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="0">Unrated</SelectItem>
-              {Array.from({ length: 30 }, (_, i) => (
-                <SelectItem key={i + 1} value={(i + 1).toString()}>
-                  {getLevelName(i + 1)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* 문제 제목 검색 */}
-        <div className="mb-4">
-          <Input
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            placeholder="문제 제목 검색"
-            className="w-[300px]"
-          />
-        </div>
-
-        {/* 정렬 옵션 */}
-        <div className="mb-4 flex gap-4">
-          <Select value={sortField} onValueChange={handleSortFieldChange}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="정렬 기준" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="id">문제 번호</SelectItem>
-              <SelectItem value="level">난이도</SelectItem>
-              <SelectItem value="acceptedUserCount">푼 사람 수</SelectItem>
-              <SelectItem value="averageTries">평균 시도 횟수</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <ToggleGroup type="single" value={sortOrder} onValueChange={handleSortOrderChange}>
-            <ToggleGroupItem value="asc">오름차순</ToggleGroupItem>
-            <ToggleGroupItem value="desc">내림차순</ToggleGroupItem>
+          <ToggleGroup
+            type="single"
+            value={matchType}
+            onValueChange={(value) => value && setMatchType(value as 'exact' | 'include')}
+            className="justify-start"
+          >
+            <ToggleGroupItem value="exact">정확히 일치</ToggleGroupItem>
+            <ToggleGroupItem value="include">포함</ToggleGroupItem>
           </ToggleGroup>
         </div>
-
-        {/* 검색 버튼 */}
-        <div className="mb-4 flex justify-center">
-          <Button 
-            onClick={handleSearch}
-            className="w-[100px]"
-          >
-            검색
-          </Button>
-        </div>
-
-        {/* 문제 목록 */}
-        <div className="space-y-4">
-          {problems.map(problem => (
-            <div key={problem.id} className="p-4 border rounded-lg shadow-sm">
-              <h3 className="text-lg font-bold">
-                <a 
-                  href={`https://www.acmicpc.net/problem/${problem.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-blue-600 transition-colors"
-                >
-                  {problem.id}. {problem.titleKo} {problem.titleEn && `(${problem.titleEn})`}
-                </a>
-              </h3>
-              <div className="mt-2 text-sm text-muted-foreground">
-                <span className="mr-4">레벨: {getLevelName(problem.level)}</span>
-                <span className="mr-4">푼 사람: {problem.acceptedUserCount}명</span>
-                <span className="mr-4">
-                  평균 시도: {problem.averageTries?.toFixed(2)}회
-                </span>
-              </div>
-              <div className="mt-2 flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => toggleTags(problem.id)}
-                  className="text-sm"
-                >
-                  {expandedProblemIds.includes(problem.id) ? '태그 숨기기' : '태그 표시하기'}
-                </Button>
-                {expandedProblemIds.includes(problem.id) && (
-                  <div className="flex flex-wrap gap-2">
-                    {problem.tags.map(({ tag }) => (
-                      <Button
-                        key={tag.key}
-                        variant="secondary"
-                        size="sm"
-                        className="h-7"
-                      >
-                        {tag.nameKo}
-                      </Button>
-                    ))}
-                  </div>
-                )}
-                <div className="flex gap-2">
-                  {problem.classes?.map(({ class: cls }) => (
-                    <Badge
-                      key={cls.id}
-                      variant="outline"
-                      className="bg-blue-50"
-                    >
-                      CLASS {cls.id}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            </div>
+        
+        <div className="text-sm mb-2">사용 가능한 태그:</div>
+        <div className="flex flex-wrap gap-2">
+          {availableTags.map(tag => (
+            <Button
+              key={tag.key}
+              variant={selectedTags.includes(tag.key) ? "secondary" : "outline"}
+              size="sm"
+              className="h-7"
+              onClick={() => handleTagToggle(tag.key)}
+            >
+              {tag.nameKo}
+            </Button>
           ))}
         </div>
+      </div>
 
-        {/* 페이지네이션 */}
-        <Pagination className="mt-8">
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious 
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                aria-disabled={page === 1}
-              />
-            </PaginationItem>
-            
-            {getPageNumbers(page, Math.ceil(total / limit)).map((pageNum, i) => (
-              <PaginationItem key={i}>
-                {pageNum === '...' ? (
-                  <PaginationEllipsis />
-                ) : (
-                  <PaginationLink
-                    isActive={page === pageNum}
-                    onClick={() => setPage(Number(pageNum))}
-                  >
-                    {pageNum}
-                  </PaginationLink>
-                )}
-              </PaginationItem>
+      {/* 클래스 선택 */}
+      <div className="mb-4">
+        <div className="text-sm mb-2">CLASS 선택:</div>
+        <div className="flex flex-wrap gap-2">
+          {Array.from({ length: 10 }, (_, i) => (
+            <Button
+              key={i + 1}
+              variant={selectedClasses.includes(i + 1) ? "secondary" : "outline"}
+              size="sm"
+              className="h-7"
+              onClick={() => handleClassToggle(i + 1)}
+            >
+              CLASS {i + 1}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      {/* 난이도 범위 선택 */}
+      <div className="mb-4 flex gap-4 items-center">
+        <Select value={minLevel?.toString()} onValueChange={(v) => setMinLevel(Number(v))}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="최소 레벨" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="0">Unrated</SelectItem>
+            {Array.from({ length: 30 }, (_, i) => (
+              <SelectItem key={i + 1} value={(i + 1).toString()}>
+                {getLevelName(i + 1)}
+              </SelectItem>
             ))}
+          </SelectContent>
+        </Select>
+        <span>~</span>
+        <Select value={maxLevel?.toString()} onValueChange={(v) => setMaxLevel(Number(v))}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="최대 레벨" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="0">Unrated</SelectItem>
+            {Array.from({ length: 30 }, (_, i) => (
+              <SelectItem key={i + 1} value={(i + 1).toString()}>
+                {getLevelName(i + 1)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
-            <PaginationItem>
-              <PaginationNext
-                onClick={() => setPage(p => Math.min(Math.ceil(total / limit), p + 1))}
-                aria-disabled={page === Math.ceil(total / limit)}
-              />
+      {/* 문제 제목 검색 */}
+      <div className="mb-4">
+        <Input
+          value={keyword}
+          onChange={(e) => setKeyword(e.target.value)}
+          placeholder="문제 제목 검색"
+          className="w-[300px]"
+        />
+      </div>
+
+      {/* 정렬 옵션 */}
+      <div className="mb-4 flex gap-4">
+        <Select value={sortField} onValueChange={handleSortFieldChange}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="정렬 기준" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="id">문제 번호</SelectItem>
+            <SelectItem value="level">난이도</SelectItem>
+            <SelectItem value="acceptedUserCount">푼 사람 수</SelectItem>
+            <SelectItem value="averageTries">평균 시도 횟수</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <ToggleGroup type="single" value={sortOrder} onValueChange={handleSortOrderChange}>
+          <ToggleGroupItem value="asc">오름차순</ToggleGroupItem>
+          <ToggleGroupItem value="desc">내림차순</ToggleGroupItem>
+        </ToggleGroup>
+      </div>
+
+      {/* 검색 버튼 */}
+      <div className="mb-4 flex justify-center">
+        <Button 
+          onClick={handleSearch}
+          className="w-[100px]"
+        >
+          검색
+        </Button>
+      </div>
+
+      {/* 문제 목록 */}
+      <div className="space-y-4">
+        {problems.map(problem => (
+          <div key={problem.id} className="p-4 border rounded-lg shadow-sm">
+            <h3 className="text-lg font-bold">
+              <a 
+                href={`https://www.acmicpc.net/problem/${problem.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-blue-600 transition-colors"
+              >
+                {problem.id}. {problem.titleKo} {problem.titleEn && `(${problem.titleEn})`}
+              </a>
+            </h3>
+            <div className="mt-2 text-sm text-muted-foreground">
+              <span className="mr-4">레벨: {getLevelName(problem.level)}</span>
+              <span className="mr-4">푼 사람: {problem.acceptedUserCount}명</span>
+              <span className="mr-4">
+                평균 시도: {problem.averageTries?.toFixed(2)}회
+              </span>
+            </div>
+            <div className="mt-2 flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => toggleTags(problem.id)}
+                className="text-sm"
+              >
+                {expandedProblemIds.includes(problem.id) ? '태그 숨기기' : '태그 표시하기'}
+              </Button>
+              {expandedProblemIds.includes(problem.id) && (
+                <div className="flex flex-wrap gap-2">
+                  {problem.tags.map(({ tag }) => (
+                    <Button
+                      key={tag.key}
+                      variant="secondary"
+                      size="sm"
+                      className="h-7"
+                    >
+                      {tag.nameKo}
+                    </Button>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                {problem.classes?.map(({ class: cls }) => (
+                  <Badge
+                    key={cls.id}
+                    variant="outline"
+                    className="bg-blue-50"
+                  >
+                    CLASS {cls.id}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 페이지네이션 */}
+      <Pagination className="mt-8">
+        <PaginationContent>
+          <PaginationItem>
+            <PaginationPrevious 
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              aria-disabled={page === 1}
+            />
+          </PaginationItem>
+          
+          {getPageNumbers(page, Math.ceil(total / limit)).map((pageNum, i) => (
+            <PaginationItem key={i}>
+              {pageNum === '...' ? (
+                <PaginationEllipsis />
+              ) : (
+                <PaginationLink
+                  isActive={page === pageNum}
+                  onClick={() => setPage(Number(pageNum))}
+                >
+                  {pageNum}
+                </PaginationLink>
+              )}
             </PaginationItem>
-          </PaginationContent>
-        </Pagination>
-      </main>
+          ))}
+
+          <PaginationItem>
+            <PaginationNext
+              onClick={() => setPage(p => Math.min(Math.ceil(total / limit), p + 1))}
+              aria-disabled={page === Math.ceil(total / limit)}
+            />
+          </PaginationItem>
+        </PaginationContent>
+      </Pagination>
+    </main>
+  );
+}
+
+export default function ProblemsPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ProblemsPageContent />
     </Suspense>
   );
 } 
