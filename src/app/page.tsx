@@ -50,6 +50,11 @@ export default function Home() {
               문제 검색하기
             </Link>
           </Button>
+          <Button asChild size="lg" className="text-lg">
+            <Link href="/report">
+              문제 제보하기
+            </Link>
+          </Button>
           <Button 
             asChild 
             variant="outline" 
