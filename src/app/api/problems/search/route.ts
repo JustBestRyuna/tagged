@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   const keyword = searchParams.get('keyword') || undefined;
   const page = parseInt(searchParams.get('page') || '1');
   const limit = parseInt(searchParams.get('limit') || '20');
-  const sortField = (searchParams.get('sortField') || 'level') as SortField;
+  const sortField = (searchParams.get('sortField') || 'id') as SortField;
   const sortOrder = (searchParams.get('sortOrder') || 'asc') as SortOrder;
   const minLevel = searchParams.get('minLevel') ? Number(searchParams.get('minLevel')) : undefined;
   const maxLevel = searchParams.get('maxLevel') ? Number(searchParams.get('maxLevel')) : undefined;
