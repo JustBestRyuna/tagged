@@ -23,6 +23,7 @@ export async function GET(request: Request) {
         ? {
             // 정확히 일치: 지정된 태그만 가지고 있어야 함
             tags: {
+              some: {}, // 태그가 최소 1개 이상 있어야 함
               every: {
                 tag: {
                   key: {

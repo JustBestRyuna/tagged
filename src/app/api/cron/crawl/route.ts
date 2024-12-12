@@ -3,37 +3,37 @@ import { headers } from 'next/headers';
 import { ProblemCrawler } from '@/lib/crawler';
 import { SourceCrawler } from '@/lib/crawler/sources';
 
-export const maxDuration = 300;
-
 export async function GET() {
-  const headersList = await headers();
-  const authHeader = headersList.get('authorization');
-
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return new NextResponse('Unauthorized', { status: 401 });
-  }
-
   try {
-    // 출처 정보 크롤링
-    const sourceCrawler = new SourceCrawler();
-    await sourceCrawler.crawlAll();
-
     // 문제 정보 크롤링
     const problemCrawler = new ProblemCrawler();
     await problemCrawler.crawlAll();
     
-    return NextResponse.json({
+    // 출처 정보 크롤링
+    const sourceCrawler = new SourceCrawler();
+    await sourceCrawler.crawlAll();
+    
+    return new Response(JSON.stringify({
       success: true,
       message: '크롤링이 성공적으로 완료되었습니다.',
       timestamp: new Date().toISOString()
+    }), {
+      headers: {
+        'Content-Type': 'application/json',
+      },
     });
   } catch (error) {
     console.error('크롤링 실패:', error);
-    return NextResponse.json({
+    return new Response(JSON.stringify({
       success: false,
       error: '크롤링 중 오류가 발생했습니다.',
       timestamp: new Date().toISOString()
-    }, { status: 500 });
+    }), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
   }
 }
 

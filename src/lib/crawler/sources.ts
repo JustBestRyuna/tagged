@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-
+import { SolvedacProblem } from '../types';
 const prisma = new PrismaClient();
 
 interface ContestGroup {
@@ -16,8 +16,27 @@ interface ContestGroup {
 interface ContestGroupResponse {
   contestGroup: ContestGroup;
   childGroups: ContestGroup[];
-  childContests: unknown[];
-  parentContestGroup: unknown;
+  childContests: Contest[];
+  parentContestGroup: ContestGroup;
+}
+
+interface Contest {
+  contestId: number;
+  contestName: string;
+  contestFullName: string;
+  contestTagName: string | null;
+  contestProblemCount: number;
+  contestAvailableProblemCount: number;
+  contestOpenProblemCount: number;
+  parentContestGroupId: number;
+}
+
+interface ContestDetail {
+  contest: Contest;
+  problems: {
+    problemId: number;
+    problem: SolvedacProblem;
+  }[];
 }
 
 export class SourceCrawler {
@@ -68,6 +87,12 @@ export class SourceCrawler {
         // 재귀적으로 하위 그룹 크롤링
         await this.crawlSourceGroup(group.contestGroupId);
       }
+
+      // 대회 정보 처리
+      for (const contest of data.childContests) {
+        await this.crawlContest(contest.contestId);
+        await this.delay(this.DELAY);
+      }
     } catch (error) {
       console.error(`그룹 ${groupId} 처리 중 에러:`, error);
       throw error;
@@ -99,5 +124,46 @@ export class SourceCrawler {
 
       console.log(`출처 그룹 처리 완료: ${savedGroup.sourceName}`);
     });
+  }
+
+  private async crawlContest(contestId: number) {
+    try {
+      const response = await fetch(
+        `${this.BASE_URL}/problem/contest/show?contestId=${contestId}`,
+        {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`대회 API 요청 실패: ${response.status}`);
+      }
+
+      const data = await response.json() as ContestDetail;
+      
+      // 대회에 포함된 문제들 처리
+      for (const item of data.problems) {
+        await prisma.problemSource.upsert({
+          where: {
+            problemId_sourceId: {
+              problemId: item.problemId,
+              sourceId: data.contest.parentContestGroupId
+            }
+          },
+          create: {
+            problemId: item.problemId,
+            sourceId: data.contest.parentContestGroupId
+          },
+          update: {}
+        });
+      }
+
+      console.log(`대회 ${data.contest.contestName} 처리 완료`);
+    } catch (error) {
+      console.error(`대회 ${contestId} 처리 중 에러:`, error);
+      throw error;
+    }
   }
 } 
