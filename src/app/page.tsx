@@ -93,9 +93,9 @@ export default function Home() {
 
           <Card>
             <CardHeader>
-              <CardTitle>매일 업데이트</CardTitle>
+              <CardTitle>문제 제보</CardTitle>
               <CardDescription>
-                매일 오전 6시에 최신 문제 정보로 업데이트됩니다
+                변경된 문제 정보를 제보하면 즉시 업데이트됩니다
               </CardDescription>
             </CardHeader>
           </Card>

@@ -26,6 +26,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { getLevelName } from '@/lib/utils';
+import { SourceSelector } from '@/components/source-selector';
 
 interface Problem {
   id: number;
@@ -53,6 +54,17 @@ interface Tag {
   key: string;
   nameKo: string;
   nameEn: string | null;
+}
+
+interface Source {
+  id: number;
+  sourceName: string;
+  fullName: string;
+  children: Source[];
+  contests?: {
+    id: number;
+    name: string;
+  }[];
 }
 
 const getPageNumbers = (currentPage: number, totalPages: number) => {
@@ -111,6 +123,10 @@ function ProblemsPageContent() {
     searchParams.get('classes')?.split(',').map(Number).filter(Boolean) || []
   );
   const [page, setPage] = useState(Number(searchParams.get('page')) || 1);
+  const [selectedSourceIds, setSelectedSourceIds] = useState<number[]>(
+    searchParams.get('sources')?.split(',').map(Number).filter(Boolean) || []
+  );
+  const [sources, setSources] = useState<Source[]>([]);
 
   // URL 업데이트 함수
   const updateURL = (params: Record<string, string | undefined>) => {
@@ -232,6 +248,30 @@ function ProblemsPageContent() {
     );
   };
 
+  useEffect(() => {
+    fetchSources();
+  }, []);
+
+  const fetchSources = async () => {
+    try {
+      const response = await fetch('/api/sources');
+      const data = await response.json();
+      if (data.success) {
+        setSources(data.data.sources);
+      }
+    } catch (error) {
+      console.error('출처 로딩 중 오류:', error);
+    }
+  };
+
+  const handleSourceSelect = (sourceId: number) => {
+    setSelectedSourceIds(prev => 
+      prev.includes(sourceId)
+        ? prev.filter(id => id !== sourceId)
+        : [...prev, sourceId]
+    );
+  };
+
   return (
     <main className="p-4">
       {/* 태그 선택 */}
@@ -328,6 +368,17 @@ function ProblemsPageContent() {
             ))}
           </SelectContent>
         </Select>
+      </div>
+
+
+      {/* 출처 선택 */}
+      <div className="mb-4">
+        <div className="text-sm mb-2">출처 선택:</div>
+        <SourceSelector
+          sources={sources}
+          onSelect={handleSourceSelect}
+          selectedSourceIds={selectedSourceIds}
+        />
       </div>
 
       {/* 문제 제목 검색 */}

@@ -49,11 +49,6 @@ export class ProblemCrawler {
 
     while (true) {
       try {
-        // if (level === 26 && page <= 5) {
-        //   page++;
-        //   continue;
-        // }
-
         const data = await this.fetchWithRetry(
           `${this.BASE_URL}/search/problem?query=*${level}&page=${page}&sort=id&direction=asc`
         );

@@ -20,6 +20,7 @@ model Problem {
   
   // Relations
   tags            ProblemTag[]
+  contests        ProblemContest[]
   sources         ProblemSource[]
   classes         ProblemClass[]
 
@@ -52,18 +53,48 @@ model ProblemTag {
 }
 
 model Source {
-  id                      Int      @id
-  sourceName             String
-  fullName               String
-  tag                    String?
-  problemCount           Int
+  id                     Int      @id
+  sourceName            String
+  fullName              String
+  tag                   String?
+  problemCount          Int
   availableProblemCount Int
   openProblemCount      Int
+  parentId              Int?     // 추가: 부모 Source의 ID
+  parent                Source?  @relation("SourceHierarchy", fields: [parentId], references: [id])
+  children              Source[] @relation("SourceHierarchy")
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
   
-  // Add relation
+  // Relations
+  contests    Contest[]
   problems    ProblemSource[]
+
+  @@index([parentId])
+}
+
+model Contest {
+  id          Int      @id
+  name        String
+  sourceId    Int
+  source      Source   @relation(fields: [sourceId], references: [id])
+  problems    ProblemContest[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([sourceId])
+}
+
+model ProblemContest {
+  problemId   Int
+  contestId   Int
+  problem     Problem   @relation(fields: [problemId], references: [id])
+  contest     Contest   @relation(fields: [contestId], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@id([problemId, contestId])
+  @@index([problemId])
+  @@index([contestId])
 }
 
 model ProblemSource {
