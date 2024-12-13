@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { SourceCrawler } from '@/lib/crawler/sources';
 
+export const maxDuration = 30;
+
 export async function GET() {
   const headersList = await headers();
   const authHeader = headersList.get('authorization');
