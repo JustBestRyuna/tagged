@@ -1,4 +1,5 @@
-![image.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/11ab4881-bb67-4bc2-a0d4-6f94740ca20e/c76591f9-c677-4057-a471-11a1563a903a/image.png)
+
+![image](https://github.com/user-attachments/assets/792da65e-2fd7-4034-81f8-6d3895d1d93f)
 
 ## 뭐 하는 사이트인가요?
 
