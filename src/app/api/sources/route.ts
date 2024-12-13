@@ -32,25 +32,38 @@ export async function GET() {
     );
     const rootSources: SourceWithChildren[] = [];
 
-    // 트리 구조 구성
-    for (const source of allSources) {
+    // 먼저 최상위 출처들을 찾음 (이름순 정렬)
+    const rootSourcesArray = allSources
+      .filter(source => source.parentId === null)
+      .sort((a, b) => a.sourceName.localeCompare(b.sourceName));
+
+    for (const source of rootSourcesArray) {
+      const sourceWithChildren = sourceMap.get(source.id);
+      if (!sourceWithChildren) continue;
+      rootSources.push(sourceWithChildren);
+    }
+
+    // 하위 출처들 처리 (이름순 정렬)
+    const childSources = allSources
+      .filter(source => source.parentId !== null)
+      .sort((a, b) => a.sourceName.localeCompare(b.sourceName));
+
+    for (const source of childSources) {
       const sourceWithChildren = sourceMap.get(source.id);
       if (!sourceWithChildren) continue;
 
-      if (source.parentId === null) {
-        console.log('Found root source:', source.sourceName);
-        rootSources.push(sourceWithChildren);
-      } else {
-        // 부모 출처에 추가
-        const parent = sourceMap.get(source.parentId);
-        if (parent) {
-          console.log('Adding child', source.sourceName, 'to parent', parent.sourceName);
-          parent.children.push(sourceWithChildren);
-        }
+      const parent = sourceMap.get(source.parentId!);
+      if (parent) {
+        parent.children.push(sourceWithChildren);
       }
     }
 
-    console.log('Final root sources:', rootSources.map(s => s.sourceName));
+    // 각 출처의 대회들도 이름순 정렬
+    for (const source of sourceMap.values()) {
+      if (source.contests) {
+        source.contests.sort((a, b) => a.name.localeCompare(b.name));
+      }
+    }
 
     const response = NextResponse.json({
       success: true,

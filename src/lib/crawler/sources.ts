@@ -186,11 +186,11 @@ export class SourceCrawler {
         create: {
           id: contestId,
           name: data.contest.contestName,
-          sourceId: data.contest.contestGroupId || 45 // 출처 ID가 없으면 Contest로
+          sourceId: data.contest.parentContestGroupId || 0
         },
         update: {
           name: data.contest.contestName,
-          sourceId: data.contest.contestGroupId || 45
+          sourceId: data.contest.parentContestGroupId || 0
         }
       });
 
@@ -295,38 +295,6 @@ export class SourceCrawler {
     } catch (error) {
       console.error(`출처 ${sourceId} 크롤링 중 에러 발생:`, error);
       throw error;
-    }
-  }
-
-  private async findRootSourceId(groupId: number | null): Promise<number> {
-    if (!groupId) return 0; // 기본값을 0으로 변경
-
-    try {
-      const response = await fetch(
-        `${this.BASE_URL}/problem/contest/group?contestGroupId=${groupId}`,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'User-Agent': 'Tagged/1.0'
-          }
-        }
-      );
-
-      if (!response.ok) return 0;
-
-      const data = await response.json();
-      if (!data.contestGroup) return 0;
-
-      // 부모가 있으면 재귀적으로 최상위 출처 찾기
-      if (data.contestGroup.parentContestGroupId) {
-        return this.findRootSourceId(data.contestGroup.parentContestGroupId);
-      }
-
-      // 부모가 없으면 현재 그룹이 최상위 출처
-      return groupId;
-    } catch (error) {
-      console.error('Error finding root source:', error);
-      return 0;
     }
   }
 } 

@@ -14,16 +14,21 @@ interface Source {
     id: number;
     name: string;
   }[];
-  parentId?: number | null;
+  type: 'source';
+}
+
+interface SelectedItem {
+  id: number;
+  type: 'source' | 'contest';
 }
 
 interface SourceSelectorProps {
   sources: Source[];
-  selectedSourceIds: number[];
-  onSelect: (sourceIds: number[], shouldSelect: boolean) => void;
+  selectedItems: Array<{id: number, type: 'source' | 'contest'}>;
+  onSelect: (items: Array<{id: number, type: 'source' | 'contest'}>, shouldSelect: boolean) => void;
 }
 
-export function SourceSelector({ sources, selectedSourceIds, onSelect }: SourceSelectorProps) {
+export function SourceSelector({ sources, selectedItems, onSelect }: SourceSelectorProps) {
   const [expandedNodes, setExpandedNodes] = useState<Set<number>>(new Set());
   
   const toggleNode = (id: number) => {
@@ -39,18 +44,21 @@ export function SourceSelector({ sources, selectedSourceIds, onSelect }: SourceS
   };
 
   const handleSourceSelect = (source: Source) => {
-    const childIds = getAllChildIds(source);
-    const allIds = [source.id, ...childIds];
-    const isCurrentlySelected = selectedSourceIds.includes(source.id);
+    const childItems = getAllChildIds(source);
+    const isCurrentlySelected = (selectedItems || []).some(
+      item => item.id === source.id && item.type === 'source'
+    );
     
-    onSelect(allIds, !isCurrentlySelected);
+    onSelect(childItems, !isCurrentlySelected);
   };
 
   const renderSourceNode = (source: Source, depth = 0) => {
     const hasChildren = Boolean(source.children?.length || source.contests?.length);
     const isExpanded = expandedNodes.has(source.id);
-    const allChildrenSelected = hasChildren && areAllChildrenSelected(source, selectedSourceIds);
-    const isSelected = selectedSourceIds.includes(source.id) || allChildrenSelected;
+    const allChildrenSelected = hasChildren && areAllChildrenSelected(source, selectedItems || []);
+    const isSelected = (selectedItems || []).some(
+      item => item.id === source.id && item.type === 'source'
+    ) || allChildrenSelected;
 
     return (
       <div key={source.id} className="w-full">
@@ -91,15 +99,21 @@ export function SourceSelector({ sources, selectedSourceIds, onSelect }: SourceS
                 key={contest.id}
                 className={`
                   flex items-center gap-1.5 py-0.5 px-1.5 rounded-md text-sm
-                  ${selectedSourceIds.includes(contest.id) ? 'bg-secondary' : 'hover:bg-secondary/50'}
+                  ${selectedItems.some(
+                    item => item.id === contest.id && item.type === 'contest'
+                  ) ? 'bg-secondary' : 'hover:bg-secondary/50'}
                 `}
                 style={{ paddingLeft: `${(depth + 1) * 1.25 + 0.5}rem` }}
               >
                 <div className="w-5" />
                 <Checkbox 
                   className="h-4 w-4"
-                  checked={selectedSourceIds.includes(contest.id)}
-                  onCheckedChange={(checked) => onSelect([contest.id], checked as boolean)}
+                  checked={selectedItems.some(
+                    item => item.id === contest.id && item.type === 'contest'
+                  )}
+                  onCheckedChange={(checked) => 
+                    onSelect([{ id: contest.id, type: 'contest' }], checked as boolean)
+                  }
                 />
                 <span>{contest.name}</span>
               </div>
@@ -117,27 +131,38 @@ export function SourceSelector({ sources, selectedSourceIds, onSelect }: SourceS
   );
 }
 
-const getAllChildIds = (source: Source): number[] => {
-  let ids: number[] = [];
-  ids.push(source.id);
+const getAllChildIds = (source: Source): SelectedItem[] => {
+  let items: SelectedItem[] = [];
   
-  // 하위 출처들 처리
+  // 출처는 'source' 타입으로
+  items.push({ id: source.id, type: 'source' });
+  
   if (source.children) {
     for (const child of source.children) {
-      const childIds = getAllChildIds(child);
-      ids = [...ids, ...childIds];
+      const childItems = getAllChildIds(child);
+      items = [...items, ...childItems];
     }
   }
   
-  // 현재 출처의 대회들
+  // 대회는 'contest' 타입으로
   if (source.contests) {
-    ids = [...ids, ...source.contests.map(contest => contest.id)];
+    items = [...items, ...source.contests.map(contest => ({ 
+      id: contest.id, 
+      type: 'contest' as const 
+    }))];
   }
   
-  return ids;
+  return items;
 };
 
-const areAllChildrenSelected = (source: Source, selectedSourceIds: number[]): boolean => {
-  const childIds = getAllChildIds(source).filter(id => id !== source.id);
-  return childIds.length > 0 && childIds.every(id => selectedSourceIds.includes(id));
+const areAllChildrenSelected = (
+  source: Source, 
+  selectedItems: SelectedItem[] = []
+): boolean => {
+  const childItems = getAllChildIds(source).filter(item => 
+    !(item.id === source.id && item.type === 'source')
+  );
+  return childItems.length > 0 && childItems.every(item => 
+    selectedItems.some(selected => selected.id === item.id && selected.type === item.type)
+  );
 }; 

@@ -66,6 +66,12 @@ interface Source {
     id: number;
     name: string;
   }[];
+  type: 'source';
+}
+
+interface SelectedItem {
+  id: number;
+  type: 'source' | 'contest';
 }
 
 const getPageNumbers = (currentPage: number, totalPages: number) => {
@@ -128,6 +134,7 @@ function ProblemsPageContent() {
     searchParams.get('sources')?.split(',').map(Number).filter(Boolean) || []
   );
   const [sources, setSources] = useState<Source[]>([]);
+  const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
 
   // URL 업데이트 함수
   const updateURL = (params: Record<string, string | undefined>) => {
@@ -142,6 +149,11 @@ function ProblemsPageContent() {
 
   // 검색 조건이 변경될 때 URL 업데이트
   const handleSearch = () => {
+    // selectedItems에서 contest 타입의 id만 추출
+    const selectedContestIds = selectedItems
+      .filter(item => item.type === 'contest')
+      .map(item => item.id);
+
     const params = {
       tags: selectedTags.length ? selectedTags.join(',') : undefined,
       matchType,
@@ -151,7 +163,7 @@ function ProblemsPageContent() {
       sortField,
       sortOrder,
       classes: selectedClasses.length ? selectedClasses.join(',') : undefined,
-      sources: selectedSourceIds.length ? selectedSourceIds.join(',') : undefined,
+      sources: selectedContestIds.length ? selectedContestIds.join(',') : undefined,
       page: '1',
     };
 
@@ -267,16 +279,18 @@ function ProblemsPageContent() {
     }
   };
 
-  const handleSourcesSelect = (sourceIds: number[], shouldSelect: boolean) => {
-    setSelectedSourceIds(prev => {
-      if (shouldSelect) {
-        // 새로운 ID들을 모두 추가
-        return [...new Set([...prev, ...sourceIds])];
-      } else {
-        // 지정된 ID들을 모두 제거
-        return prev.filter(id => !sourceIds.includes(id));
-      }
-    });
+  const handleSelect = (items: SelectedItem[], shouldSelect: boolean) => {
+    if (shouldSelect) {
+      setSelectedItems(prev => [...prev, ...items]);
+    } else {
+      setSelectedItems(prev => 
+        prev.filter(item => 
+          !items.some(newItem => 
+            newItem.id === item.id && newItem.type === item.type
+          )
+        )
+      );
+    }
   };
 
   const resetQuery = () => {
@@ -405,8 +419,8 @@ function ProblemsPageContent() {
         <div className="text-sm mb-2">출처 선택:</div>
         <SourceSelector
           sources={sources}
-          selectedSourceIds={selectedSourceIds}
-          onSelect={handleSourcesSelect}
+          selectedItems={selectedItems}
+          onSelect={handleSelect}
         />
       </div>
 
