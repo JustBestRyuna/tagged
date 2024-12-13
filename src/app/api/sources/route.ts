@@ -75,12 +75,17 @@ export async function GET() {
       rootSources.map(source => getSourceWithChildren(source.id))
     );
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       data: {
         sources: allSources.filter(Boolean)
       }
     });
+
+    // 캐시 헤더 설정
+    response.headers.set('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
+
+    return response;
   } catch (error) {
     console.error('출처 로딩 중 오류:', error);
     return NextResponse.json({
