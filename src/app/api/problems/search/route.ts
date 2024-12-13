@@ -7,6 +7,48 @@ type MatchType = 'exact' | 'include';
 type SortField = 'level' | 'acceptedUserCount' | 'averageTries';
 type SortOrder = 'asc' | 'desc';
 
+// 선택된 출처와 그 하위 출처들의 ID를 모두 가져오는 함수
+async function getAllSourceIds(sourceIds: number[]): Promise<number[]> {
+  const result = new Set<number>(sourceIds);
+  
+  // 재귀적으로 모든 하위 출처를 찾음
+  const findChildren = async (parentIds: number[]) => {
+    const children = await prisma.source.findMany({
+      where: { parentId: { in: parentIds } },
+      select: { id: true }
+    });
+    
+    if (children.length > 0) {
+      const childIds = children.map(c => c.id);
+      childIds.forEach(id => result.add(id));
+      await findChildren(childIds);
+    }
+  };
+  
+  await findChildren(sourceIds);
+  return Array.from(result);
+}
+
+// 출처 타입을 구분하는 함수
+async function categorizeSourceIds(sources: number[]) {
+  // 각 ID가 출처인지 대회인지 확인
+  const sourceData = await prisma.source.findMany({
+    where: { id: { in: sources } },
+    select: { id: true }
+  });
+  
+  const contestData = await prisma.contest.findMany({
+    where: { id: { in: sources } },
+    select: { id: true }
+  });
+
+  // 출처 ID와 대회 ID 분리
+  const sourceIds = sourceData.map(s => s.id);
+  const contestIds = contestData.map(c => c.id);
+
+  return { sourceIds, contestIds };
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   
@@ -21,8 +63,15 @@ export async function GET(request: Request) {
   const minLevel = searchParams.get('minLevel') ? Number(searchParams.get('minLevel')) : undefined;
   const maxLevel = searchParams.get('maxLevel') ? Number(searchParams.get('maxLevel')) : undefined;
   const classes = searchParams.get('classes')?.split(',').map(Number) || [];
+  const sources = searchParams.get('sources')?.split(',').map(Number) || [];
 
   try {
+    // ID 분류
+    const { sourceIds, contestIds } = await categorizeSourceIds(sources);
+    
+    // 출처의 모든 하위 출처 ID 가져오기
+    const allSourceIds = sourceIds.length > 0 ? await getAllSourceIds(sourceIds) : [];
+    
     // 태그 검색 조건 구성
     const tagCondition = tags.length > 0 
       ? matchType === 'exact'
@@ -97,6 +146,18 @@ export async function GET(request: Request) {
             }
           }
         } : {},
+        sources.length > 0 ? {
+          contests: {
+            some: {
+              contest: {
+                OR: [
+                  { id: { in: contestIds } },           // 대회 ID로 직접 검색
+                  { sourceId: { in: allSourceIds } }    // 출처 ID로 검색
+                ]
+              }
+            }
+          }
+        } : {},
       ]
     };
 
@@ -149,7 +210,7 @@ export async function GET(request: Request) {
     });
 
   } catch (error) {
-    console.error('문제 검색 중 에러:', error);
+    console.log(`문제 검색 중 에러 발생: ${error}`);
     return NextResponse.json({
       success: false,
       error: '문제 검색 중 오류가 발생했습니다.'

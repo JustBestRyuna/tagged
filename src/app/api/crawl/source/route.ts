@@ -1,22 +1,17 @@
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
-import { ProblemCrawler } from '@/lib/crawler';
 import { SourceCrawler } from '@/lib/crawler/sources';
 
 export async function GET() {
-  // const headersList = await headers();
-  // const authHeader = headersList.get('authorization');
+  const headersList = await headers();
+  const authHeader = headersList.get('authorization');
 
-  // // API 키 인증
-  // if (authHeader !== `Bearer ${process.env.API_SECRET_KEY}`) {
-  //   return new NextResponse('Unauthorized', { status: 401 });
-  // }
+  // API 키 인증
+  if (authHeader !== `Bearer ${process.env.API_SECRET_KEY}`) {
+    return new NextResponse('Unauthorized', { status: 401 });
+  }
 
   try {
-    // 문제 정보 크롤링
-    const problemCrawler = new ProblemCrawler();
-    await problemCrawler.crawlAll();
-    
     // 출처 정보 크롤링
     const sourceCrawler = new SourceCrawler();
     await sourceCrawler.crawlAll();
@@ -56,7 +51,7 @@ export async function POST() {
   }
 
   try {
-    const crawler = new ProblemCrawler();
+    const crawler = new SourceCrawler();
     await crawler.crawlAll();
     
     return NextResponse.json({

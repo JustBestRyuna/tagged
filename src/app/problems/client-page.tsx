@@ -27,6 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { getLevelName } from '@/lib/utils';
 import { SourceSelector } from '@/components/source-selector';
+import { RefreshCw } from "lucide-react";
 
 interface Problem {
   id: number;
@@ -150,7 +151,8 @@ function ProblemsPageContent() {
       sortField,
       sortOrder,
       classes: selectedClasses.length ? selectedClasses.join(',') : undefined,
-      page: '1', // 검색 시 첫 페이지로 이동
+      sources: selectedSourceIds.length ? selectedSourceIds.join(',') : undefined,
+      page: '1',
     };
 
     updateURL(params);
@@ -169,6 +171,7 @@ function ProblemsPageContent() {
       sortField,
       sortOrder,
       classes: selectedClasses.length ? selectedClasses.join(',') : undefined,
+      sources: selectedSourceIds.length ? selectedSourceIds.join(',') : undefined,
       page: page.toString(),
     };
 
@@ -264,16 +267,42 @@ function ProblemsPageContent() {
     }
   };
 
-  const handleSourceSelect = (sourceId: number) => {
-    setSelectedSourceIds(prev => 
-      prev.includes(sourceId)
-        ? prev.filter(id => id !== sourceId)
-        : [...prev, sourceId]
-    );
+  const handleSourcesSelect = (sourceIds: number[], shouldSelect: boolean) => {
+    setSelectedSourceIds(prev => {
+      if (shouldSelect) {
+        // 새로운 ID들을 모두 추가
+        return [...new Set([...prev, ...sourceIds])];
+      } else {
+        // 지정된 ID들을 모두 제거
+        return prev.filter(id => !sourceIds.includes(id));
+      }
+    });
+  };
+
+  const resetQuery = () => {
+    setSelectedTags([]);
+    setMatchType('include');
+    setMinLevel(undefined);
+    setMaxLevel(undefined);
+    setKeyword('');
+    setSortField('id');
+    setSortOrder('asc');
+    setSelectedClasses([]);
+    setSelectedSourceIds([]);
+    setPage(1);
+
+    // URL 초기화
+    updateURL({});
+    // 검색 실행
+    fetchProblems();
   };
 
   return (
-    <main className="p-4">
+    <div className="container py-6 px-8 space-y-6 max-w-[1200px] mx-auto">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">문제 검색하기</h1>
+      </div>
+      
       {/* 태그 선택 */}
       <div className="mb-4">
         <div className="text-sm mb-2">선택된 태그:</div>
@@ -376,8 +405,8 @@ function ProblemsPageContent() {
         <div className="text-sm mb-2">출처 선택:</div>
         <SourceSelector
           sources={sources}
-          onSelect={handleSourceSelect}
           selectedSourceIds={selectedSourceIds}
+          onSelect={handleSourcesSelect}
         />
       </div>
 
@@ -412,7 +441,15 @@ function ProblemsPageContent() {
       </div>
 
       {/* 검색 버튼 */}
-      <div className="mb-4 flex justify-center">
+      <div className="mb-4 flex justify-center gap-2">
+        <Button 
+          variant="outline"
+          onClick={resetQuery}
+          className="w-[100px] gap-2"
+        >
+          <RefreshCw className="h-4 w-4" />
+          초기화
+        </Button>
         <Button 
           onClick={handleSearch}
           className="w-[100px]"
@@ -514,7 +551,7 @@ function ProblemsPageContent() {
           </PaginationItem>
         </PaginationContent>
       </Pagination>
-    </main>
+    </div>
   );
 }
 

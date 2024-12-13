@@ -49,6 +49,11 @@ export class ProblemCrawler {
 
     while (true) {
       try {
+        if (level === 4 && page <= 6) {
+          page++;
+          continue;
+        }
+
         const data = await this.fetchWithRetry(
           `${this.BASE_URL}/search/problem?query=*${level}&page=${page}&sort=id&direction=asc`
         );
@@ -80,14 +85,14 @@ export class ProblemCrawler {
       console.log('문제 크롤링 시작...');
       
       // 1. CLASS 문제 크롤링 (1~10)
-      for (let classLevel = 1; classLevel <= 10; classLevel++) {
-        console.log(`CLASS ${classLevel} 크롤링 시작...`);
-        await this.crawlProblemsByClass(classLevel);
-        await this.delay(this.DELAY);
-      }
+      // for (let classLevel = 1; classLevel <= 10; classLevel++) {
+      //   console.log(`CLASS ${classLevel} 크롤링 시작...`);
+      //   await this.crawlProblemsByClass(classLevel);
+      //   await this.delay(this.DELAY);
+      // }
 
       // 2. 난이도별 문제 크롤링 (0~30)
-      for (let level = 0; level <= 30; level++) {
+      for (let level = 4; level <= 30; level++) {
         console.log(`난이도 ${level} 크롤링 시작...`);
         await this.crawlProblemsByLevel(level);
         await this.delay(this.DELAY);

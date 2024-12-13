@@ -33,7 +33,7 @@ export class SourceCrawler {
     }
   }
 
-  private async crawlSourceGroup(groupId: number) {
+  private async crawlSourceGroup(groupId: number, parentId: number | null = null) {
     try {
       // 이미 처리한 그룹이면 건너뛰기
       if (this.processedGroups.has(groupId)) {
@@ -66,7 +66,7 @@ export class SourceCrawler {
 
       // 현재 그룹 저장 및 처리 완료 표시
       if (data.contestGroup.contestGroupId !== 0) {
-        await this.saveGroup(data.contestGroup);
+        await this.saveGroup(data.contestGroup, parentId);
         this.processedGroups.add(groupId);
       }
 
@@ -74,10 +74,15 @@ export class SourceCrawler {
       if (data.childGroups) {
         for (const group of data.childGroups) {
           if (!this.processedGroups.has(group.contestGroupId)) {
-            await this.saveGroup(group);
-            await this.delay(this.DELAY);
-            // 재귀적으로 하위 그룹 크롤링
-            await this.crawlSourceGroup(group.contestGroupId);
+            try {
+              await this.saveGroup(group, null);  // 먼저 부모 ID 없이 저장
+              await this.delay(this.DELAY);
+              // 재귀적으로 하위 그룹 크롤링
+              await this.crawlSourceGroup(group.contestGroupId, groupId);
+            } catch (error) {
+              console.log(`하위 그룹 ${group.contestGroupId} 처리 실패: ${error}`);
+              continue;  // 실패해도 다음 그룹 계속 처리
+            }
           }
         }
       }
@@ -87,48 +92,75 @@ export class SourceCrawler {
         for (const contest of data.childContests) {
           if (!this.processedContests.has(contest.contestId)) {
             try {
-              await this.crawlContest(contest.contestId, data.contestGroup.contestGroupId);
+              await this.crawlContest(contest.contestId);
               this.processedContests.add(contest.contestId);
               await this.delay(this.DELAY);
             } catch (error) {
-              console.error(`대회 ${contest.contestId} 처리 실패, 계속 진행`, error);
-              continue;
+              console.log(`대회 ${contest.contestId} 처리 실패: ${error}`);
+              continue;  // 실패해도 다음 대회 계속 처리
             }
           }
         }
       }
     } catch (error) {
-      console.error(`그룹 ${groupId} 처리 중 에러:`, error);
-      // 에러가 발생해도 크롤링을 중단하지 않음
+      console.log(`그룹 ${groupId} 처리 중 에러 발생: ${error}`);
       return;
     }
   }
 
-  private async saveGroup(group: ContestGroup) {
-    await prisma.source.upsert({
-      where: { id: group.contestGroupId },
-      create: {
-        id: group.contestGroupId,
-        sourceName: group.contestGroupName,
-        fullName: group.contestGroupFullName,
-        tag: group.contestGroupTagName,
-        problemCount: group.contestGroupProblemCount,
-        availableProblemCount: group.contestGroupAvailableProblemCount,
-        openProblemCount: group.contestGroupOpenProblemCount,
-      },
-      update: {
-        sourceName: group.contestGroupName,
-        fullName: group.contestGroupFullName,
-        tag: group.contestGroupTagName,
-        problemCount: group.contestGroupProblemCount,
-        availableProblemCount: group.contestGroupAvailableProblemCount,
-        openProblemCount: group.contestGroupOpenProblemCount,
+  private async saveGroup(group: ContestGroup, parentId: number | null) {
+    try {
+      // 1. 먼저 parentId 없이 저장
+      await prisma.source.upsert({
+        where: { id: group.contestGroupId },
+        create: {
+          id: group.contestGroupId,
+          sourceName: group.contestGroupName,
+          fullName: group.contestGroupFullName,
+          tag: group.contestGroupTagName,
+          problemCount: group.contestGroupProblemCount,
+          availableProblemCount: group.contestGroupAvailableProblemCount,
+          openProblemCount: group.contestGroupOpenProblemCount,
+          parentId: null  // 처음에는 parentId를 null로 설정
+        },
+        update: {
+          sourceName: group.contestGroupName,
+          fullName: group.contestGroupFullName,
+          tag: group.contestGroupTagName,
+          problemCount: group.contestGroupProblemCount,
+          availableProblemCount: group.contestGroupAvailableProblemCount,
+          openProblemCount: group.contestGroupOpenProblemCount
+          // update에서는 parentId를 변경하지 않음
+        }
+      });
+
+      // 2. parentId가 있는 경우, 별도의 update로 처리
+      if (parentId !== null) {
+        // 부모 소스가 존재하는지 확인
+        const parentExists = await prisma.source.findUnique({
+          where: { id: parentId }
+        });
+
+        if (parentExists) {
+          await prisma.source.update({
+            where: { id: group.contestGroupId },
+            data: { parentId }
+          });
+        } else {
+          console.log(`부모 소스 ${parentId}가 존재하지 않아 parentId 설정을 건너뜁니다.`);
+        }
       }
-    });
+    } catch (error) {
+      console.log(`소스 ${group.contestGroupId} 저장 중 에러 발생`);
+      throw error;  // 상위에서 처리하도록 에러를 전파
+    }
   }
 
-  private async crawlContest(contestId: number, sourceId: number) {
+  public async crawlContest(contestId: number) {
     try {
+      console.log(`대회 ${contestId} 처리 중...`);
+      
+      // 대회 정보 가져오기 (show API 사용)
       const response = await fetch(
         `${this.BASE_URL}/problem/contest/show?contestId=${contestId}`,
         {
@@ -140,15 +172,12 @@ export class SourceCrawler {
       );
 
       if (!response.ok) {
-        console.log(`대회 ${contestId} API 응답 실패: ${response.status}`);
-        return;
+        throw new Error(`API 응답 실패: ${response.status}`);
       }
 
       const data = await response.json();
-      
-      if (!data || !data.contest) {
-        console.log(`대회 ${contestId} 데이터 없음, 건너뛰기`);
-        return;
+      if (!data.contest) {
+        throw new Error('대회 데이터 없음');
       }
 
       // 대회 정보 저장
@@ -157,49 +186,147 @@ export class SourceCrawler {
         create: {
           id: contestId,
           name: data.contest.contestName,
-          sourceId: sourceId
+          sourceId: data.contest.contestGroupId || 45 // 출처 ID가 없으면 Contest로
         },
         update: {
           name: data.contest.contestName,
-          sourceId: sourceId
+          sourceId: data.contest.contestGroupId || 45
         }
       });
 
-      // 문제-대회 관계 저장
-      if (data.problems === null) {
-        console.log(`대회 ${contestId}의 문제 목록이 null입니다.`);
-        return;
-      }
+      // 문제-대회 관계 처리
+      if (data.problems) {
+        for (const item of data.problems) {
+          if (item?.problem) {
+            try {
+              await prisma.problem.upsert({
+                where: { id: item.problem.problemId },
+                create: {
+                  id: item.problem.problemId,
+                  titleKo: item.problem.titleKo || '',
+                  level: item.problem.level || 0,
+                  averageTries: item.problem.averageTries || 0,
+                  acceptedUserCount: item.problem.acceptedUserCount || 0,
+                },
+                update: {
+                  titleKo: item.problem.titleKo || '',
+                  level: item.problem.level || 0,
+                  averageTries: item.problem.averageTries || 0,
+                  acceptedUserCount: item.problem.acceptedUserCount || 0,
+                }
+              });
 
-      console.log(`대회 ${contestId}의 문제 수:`, data.problems.length);
-
-      for (const item of data.problems || []) {
-        if (item?.problem) {
-          try {
-            await prisma.problemContest.upsert({
-              where: {
-                problemId_contestId: {
+              await prisma.problemContest.upsert({
+                where: {
+                  problemId_contestId: {
+                    problemId: item.problem.problemId,
+                    contestId: contestId
+                  }
+                },
+                create: {
                   problemId: item.problem.problemId,
                   contestId: contestId
-                }
-              },
-              create: {
-                problemId: item.problem.problemId,
-                contestId: contestId
-              },
-              update: {}
-            });
-          } catch (dbError) {
-            console.error(`문제 ${item.problem.problemId} DB 저장 실패:`, dbError);
-            continue;
+                },
+                update: {}
+              });
+            } catch (dbError) {
+              console.log(`문제 ${item.problem.problemId} DB 저장 실패: ${dbError}`);
+              continue;
+            }
           }
         }
       }
 
-      console.log(`대회 ${data.contest.contestName} 처리 완료`);
+      console.log(`대회 ${contestId} 처리 완료`);
     } catch (error) {
-      console.error(`대회 ${contestId} 처리 중 에러:`, error);
-      return;
+      console.log(`대회 ${contestId} 처리 중 에러 발생:`, error);
+      throw error;
+    }
+  }
+
+  async crawlSingleSource(sourceId: number) {
+    try {
+      console.log(`출처 ${sourceId} 크롤링 시작...`);
+      
+      // API 호출
+      const response = await fetch(
+        `${this.BASE_URL}/problem/contest/group?contestGroupId=${sourceId}`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Tagged/1.0'
+          }
+        }
+      );
+
+      if (!response.ok) {
+        console.log(`출처 ${sourceId} API 응답 실패: ${response.status}`);
+        throw new Error(`API 응답 실패: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      // API 응답 데이터 유효성 검사
+      if (!data || !data.contestGroup) {
+        console.log(`출처 ${sourceId} 데이터 없음`);
+        throw new Error('데이터 없음');
+      }
+
+      // 출처 정보 저장
+      await this.saveGroup(data.contestGroup, data.contestGroup.parentContestGroupId || null);
+
+      // 대회 정보 처리
+      if (data.childContests) {
+        for (const contest of data.childContests) {
+          if (!this.processedContests.has(contest.contestId)) {
+            try {
+              await this.crawlContest(contest.contestId);
+              this.processedContests.add(contest.contestId);
+              await this.delay(this.DELAY);
+            } catch (error) {
+              console.log(`대회 ${contest.contestId} 처리 실패: ${error}`);
+              continue;
+            }
+          }
+        }
+      }
+
+      console.log(`출처 ${sourceId} 크롤링 완료!`);
+    } catch (error) {
+      console.error(`출처 ${sourceId} 크롤링 중 에러 발생:`, error);
+      throw error;
+    }
+  }
+
+  private async findRootSourceId(groupId: number | null): Promise<number> {
+    if (!groupId) return 0; // 기본값을 0으로 변경
+
+    try {
+      const response = await fetch(
+        `${this.BASE_URL}/problem/contest/group?contestGroupId=${groupId}`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Tagged/1.0'
+          }
+        }
+      );
+
+      if (!response.ok) return 0;
+
+      const data = await response.json();
+      if (!data.contestGroup) return 0;
+
+      // 부모가 있으면 재귀적으로 최상위 출처 찾기
+      if (data.contestGroup.parentContestGroupId) {
+        return this.findRootSourceId(data.contestGroup.parentContestGroupId);
+      }
+
+      // 부모가 없으면 현재 그룹이 최상위 출처
+      return groupId;
+    } catch (error) {
+      console.error('Error finding root source:', error);
+      return 0;
     }
   }
 } 
