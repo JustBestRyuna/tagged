@@ -135,6 +135,12 @@ function ProblemsPageContent() {
   );
   const [sources, setSources] = useState<Source[]>([]);
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
+  const [classMatchType, setClassMatchType] = useState<'and' | 'or'>(
+    (searchParams.get('classMatchType') as 'and' | 'or') || 'or'
+  );
+  const [sourceMatchType, setSourceMatchType] = useState<'and' | 'or'>(
+    (searchParams.get('sourceMatchType') as 'and' | 'or') || 'or'
+  );
 
   // URL 업데이트 함수
   const updateURL = (params: Record<string, string | undefined>) => {
@@ -163,7 +169,9 @@ function ProblemsPageContent() {
       sortField,
       sortOrder,
       classes: selectedClasses.length ? selectedClasses.join(',') : undefined,
+      classMatchType,
       sources: selectedContestIds.length ? selectedContestIds.join(',') : undefined,
+      sourceMatchType,
       page: '1',
     };
 
@@ -367,6 +375,12 @@ function ProblemsPageContent() {
       {/* 클래스 선택 */}
       <div className="mb-4">
         <div className="text-sm mb-2">CLASS 선택:</div>
+        <div className="flex gap-4 mb-2">
+          <ToggleGroup type="single" value={classMatchType} onValueChange={(value) => value && setClassMatchType(value as 'and' | 'or')}>
+            <ToggleGroupItem value="and">AND</ToggleGroupItem>
+            <ToggleGroupItem value="or">OR</ToggleGroupItem>
+          </ToggleGroup>
+        </div>
         <div className="flex flex-wrap gap-2">
           {Array.from({ length: 10 }, (_, i) => (
             <Button
@@ -417,6 +431,12 @@ function ProblemsPageContent() {
       {/* 출처 선택 */}
       <div className="mb-4">
         <div className="text-sm mb-2">출처 선택:</div>
+        <div className="flex gap-4 mb-2">
+          <ToggleGroup type="single" value={sourceMatchType} onValueChange={(value) => value && setSourceMatchType(value as 'and' | 'or')}>
+            <ToggleGroupItem value="and">AND</ToggleGroupItem>
+            <ToggleGroupItem value="or">OR</ToggleGroupItem>
+          </ToggleGroup>
+        </div>
         <SourceSelector
           sources={sources}
           selectedItems={selectedItems}

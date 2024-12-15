@@ -7,52 +7,38 @@ type MatchType = 'exact' | 'include';
 type SortField = 'level' | 'acceptedUserCount' | 'averageTries';
 type SortOrder = 'asc' | 'desc';
 
-// 선택된 출처와 그 하위 출처들의 ID를 모두 가져오는 함수
-async function getAllSourceIds(sourceIds: number[]): Promise<number[]> {
-  const result = new Set<number>(sourceIds);
-  
-  // 재귀적으로 모든 하위 출처를 찾음
-  const findChildren = async (parentIds: number[]) => {
-    const children = await prisma.source.findMany({
-      where: { parentId: { in: parentIds } },
-      select: { id: true }
-    });
-    
-    if (children.length > 0) {
-      const childIds = children.map(c => c.id);
-      childIds.forEach(id => result.add(id));
-      await findChildren(childIds);
-    }
-  };
-  
-  await findChildren(sourceIds);
-  return Array.from(result);
-}
-
-// 출처 타입을 구분하는 함수
 async function categorizeSourceIds(sources: number[]) {
-  // 각 ID가 출처인지 대회인지 확인
-  const sourceData = await prisma.source.findMany({
-    where: { id: { in: sources } },
-    select: { id: true }
-  });
-  
+  // 1. 먼저 contest 테이블에서 실제 대회 ID를 찾습니다
   const contestData = await prisma.contest.findMany({
     where: { id: { in: sources } },
     select: { id: true }
   });
+  const contestIdSet = new Set(contestData.map(c => c.id));
 
-  // 출처 ID와 대회 ID 분리
-  const sourceIds = sourceData.map(s => s.id);
-  const contestIds = contestData.map(c => c.id);
+  // 2. contest가 아닌 ID들 중에서 source를 찾습니다
+  const remainingIds = sources.filter(id => !contestIdSet.has(id));
+  const sourceData = await prisma.source.findMany({
+    where: { id: { in: remainingIds } },
+    select: { 
+      id: true,
+      contests: {
+        select: { id: true }
+      }
+    }
+  });
 
-  return { sourceIds, contestIds };
+  // 3. 선택된 source의 직접적인 contest들만 가져옵니다
+  const directContestIds = sourceData.flatMap(s => s.contests.map(c => c.id));
+
+  return {
+    sourceIds: sourceData.map(s => s.id),
+    contestIds: [...contestIdSet, ...directContestIds]
+  };
 }
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   
-  // 검색 파라미터 파싱
   const tags = searchParams.get('tags')?.split(',').filter(Boolean) || [];
   const matchType = (searchParams.get('matchType') || 'include') as MatchType;
   const keyword = searchParams.get('keyword') || undefined;
@@ -64,100 +50,121 @@ export async function GET(request: Request) {
   const maxLevel = searchParams.get('maxLevel') ? Number(searchParams.get('maxLevel')) : undefined;
   const classes = searchParams.get('classes')?.split(',').map(Number) || [];
   const sources = searchParams.get('sources')?.split(',').map(Number) || [];
+  const classMatchType = (searchParams.get('classMatchType') || 'or') as 'and' | 'or';
+  const sourceMatchType = (searchParams.get('sourceMatchType') || 'or') as 'and' | 'or';
 
   try {
-    // ID 분류
-    const { sourceIds, contestIds } = await categorizeSourceIds(sources);
+    const { contestIds } = await categorizeSourceIds(sources);
     
-    // 출처의 모든 하위 출처 ID 가져오기
-    const allSourceIds = sourceIds.length > 0 ? await getAllSourceIds(sourceIds) : [];
-    
-    // 태그 검색 조건 구성
-    const tagCondition = tags.length > 0 
-      ? matchType === 'exact'
-        ? {
-            // 정확히 일치: 지정된 태그만 가지고 있어야 함
-            tags: {
-              some: {}, // 태그가 최소 1개 이상 있어야 함
-              every: {
-                tag: {
-                  key: {
-                    in: tags
-                  }
-                }
-              }
-            },
-            AND: {
-              tags: {
-                none: {
-                  tag: {
-                    key: {
-                      notIn: tags
+    const allContestIds = contestIds;
+
+    const where = {
+      AND: [
+        ...(tags.length > 0 
+          ? [matchType === 'exact'
+              ? {
+                  tags: {
+                    some: {},
+                    every: {
+                      tag: {
+                        key: {
+                          in: tags
+                        }
+                      }
+                    }
+                  },
+                  AND: {
+                    tags: {
+                      none: {
+                        tag: {
+                          key: {
+                            notIn: tags
+                          }
+                        }
+                      }
                     }
                   }
                 }
-              }
-            }
-          }
-        : {
-            // 포함: 지정된 태그들이 모두 포함되어 있어야 함
-            tags: {
-              some: {
-                tag: {
-                  key: {
-                    in: tags
-                  }
+              : {
+                  tags: {
+                    some: {
+                      tag: {
+                        key: {
+                          in: tags
+                        }
+                      }
+                    }
+                  },
+                  AND: tags.map(tag => ({
+                    tags: {
+                      some: {
+                        tag: {
+                          key: tag
+                        }
+                      }
+                    }
+                  }))
                 }
-              }
-            },
-            AND: tags.map(tag => ({
-              tags: {
-                some: {
-                  tag: {
-                    key: tag
-                  }
-                }
-              }
-            }))
-          }
-      : {};
+          ]
+          : []),
 
-    // 검색 조건 구성
-    const where = {
-      AND: [
-        tagCondition,
-        // 키워드 검색
-        keyword ? {
+        ...(keyword ? [{
           OR: [
             { titleKo: { contains: keyword } },
             { titleEn: { contains: keyword } }
           ]
-        } : {},
-        minLevel !== undefined ? { level: { gte: minLevel } } : {},
-        maxLevel !== undefined ? { level: { lte: maxLevel } } : {},
-        classes.length > 0 ? {
-          classes: {
-            some: {
-              class: {
-                id: {
-                  in: classes
-                }
-              }
-            }
-          }
-        } : {},
-        sources.length > 0 ? {
-          contests: {
-            some: {
-              contest: {
-                OR: [
-                  { id: { in: contestIds } },           // 대회 ID로 직접 검색
-                  { sourceId: { in: allSourceIds } }    // 출처 ID로 검색
-                ]
-              }
-            }
-          }
-        } : {},
+        }] : []),
+
+        ...(minLevel !== undefined ? [{ level: { gte: minLevel } }] : []),
+        ...(maxLevel !== undefined ? [{ level: { lte: maxLevel } }] : []),
+
+        {
+          OR: [
+            ...(classes.length > 0 
+              ? [classMatchType === 'and'
+                  ? {
+                      AND: classes.map(classId => ({
+                        classes: {
+                          some: {
+                            class: { id: classId }
+                          }
+                        }
+                      }))
+                    }
+                  : {
+                      classes: {
+                        some: {
+                          class: {
+                            id: { in: classes }
+                          }
+                        }
+                      }
+                    }
+              ]
+              : []),
+
+            ...(allContestIds.length > 0
+              ? [sourceMatchType === 'and'
+                  ? {
+                      AND: allContestIds.map(contestId => ({
+                        contests: {
+                          some: {
+                            contestId
+                          }
+                        }
+                      }))
+                    }
+                  : {
+                      contests: {
+                        some: {
+                          contestId: { in: allContestIds }
+                        }
+                      }
+                    }
+              ]
+              : [])
+          ]
+        }
       ]
     };
 
@@ -166,10 +173,8 @@ export async function GET(request: Request) {
       { id: 'asc' }
     ];
 
-    // 총 결과 수 조회
     const total = await prisma.problem.count({ where });
 
-    // 문제 검색 실행
     const problems = await prisma.problem.findMany({
       where,
       include: {
@@ -210,7 +215,7 @@ export async function GET(request: Request) {
     });
 
   } catch (error) {
-    console.log(`문제 검색 중 에러 발생: ${error}`);
+    console.error('문제 검색 중 에러 발생:', error);
     return NextResponse.json({
       success: false,
       error: '문제 검색 중 오류가 발생했습니다.'
